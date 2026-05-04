@@ -1,0 +1,64 @@
+# stt-whisper 默认配置
+
+# ===== 转写配置 =====
+stt:
+  model: "large-v3"              # Whisper模型: tiny/base/small/medium/large-v2/large-v3
+  language: "zh"                # 语言代码，null=自动检测
+  device: "cuda"               # 推理设备: cuda 或 cpu
+  use_faster_whisper: true      # 是否使用 faster-whisper (更快的C++实现)
+
+# ===== 说话人区分配置 =====
+diarization:
+  enabled: true                 # 是否启用说话人区分
+  model: "pyannote/speaker-diarization-3.1"  # pyannote 模型
+  min_speakers: 1              # 最小说话人数
+  max_speakers: 10             # 最大说话人数
+  use_simpler_fallback: true   # pyannote不可用时使用简化版
+
+# ===== 音频处理配置 =====
+audio:
+  convert_to_wav: true         # 转换为WAV格式
+  target_sample_rate: 16000    # 目标采样率 (Whisper推荐16kHz)
+  target_channels: 1           # 目标声道数 (Whisper推荐单声道)
+  normalize_volume: false      # 是否音量标准化
+  volume_level: -20.0          # 标准化音量级别 (dB)
+
+# ===== 背景信息配置 =====
+background:
+  use_batch_background: true  # 优先使用批量背景
+  default: "通用对话"          # 默认背景
+
+# ===== 后处理配置 =====
+curation:
+  remove_fillers: true         # 删除填充词 (嗯/啊/呃等)
+  remove_noise: true           # 删除噪声标记 [笑声][掌声]等
+  normalize_punctuation: true  # 标点规范化
+  remove_repeats: true        # 删除重复词
+  min_word_count: 1           # 片段最小词数
+
+# ===== 输出格式配置 =====
+output:
+  format: "dialogue"          # 输出格式: dialogue/utterances/plain/plain_no_speaker
+  include_metadata: true       # 是否包含元数据
+  indent: 2                   # JSON缩进
+
+# ===== 质量过滤配置 =====
+quality:
+  min_score: 0.0              # 最低质量分数 (0=不过滤)
+  min_segments: 1             # 最少片段数
+  min_duration: 0             # 最短时长 (秒)
+
+# ===== Pipeline 配置 =====
+pipeline:
+  model: "large-v3"
+  language: "zh"
+  device: "cuda"
+  use_faster_whisper: true
+  enable_diarization: true
+  diarization_model: "pyannote/speaker-diarization-3.1"
+  convert_to_wav: true
+  target_sample_rate: 16000
+  remove_fillers: true
+  normalize_punctuation: true
+  output_format: "dialogue"
+  min_quality_score: 0.0

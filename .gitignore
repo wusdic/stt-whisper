@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+build/
+
+# HuggingFace 模型缓存（不要上传到 GitHub）
+model_cache/
+*.lock
+
+# 输出文件
+src/outputs/
+outputs/
+*.wav
+*.mp3
+*.m4a
+*.flac
+*.ogg
+
+# Streamlit
+.streamlit/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp files
+*.tmp
+*.temp
+*.log
