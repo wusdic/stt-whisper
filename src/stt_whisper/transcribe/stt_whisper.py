@@ -163,7 +163,14 @@ class WhisperTranscriber:
         audio_path: Path,
         background: str = "",
         initial_prompt: Optional[str] = None,
-        vad_filter: bool = True
+        vad_filter: bool = True,
+        beam_size: int = 5,
+        best_of: int = 5,
+        temperature: float = 0.0,
+        condition_on_previous_text: bool = True,
+        without_timestamps: bool = False,
+        _on_segment: Optional[callable] = None,
+        _progress_callback: Optional[callable] = None,
     ) -> TranscribeResult:
         """
         转写单个音频文件
@@ -173,6 +180,8 @@ class WhisperTranscriber:
             background: 背景信息（用于提升转写准确性）
             initial_prompt: 初始提示词
             vad_filter: 是否使用语音活动检测滤波
+            _on_segment: 流式回调，每识别一个片段立即调用，签名 f(seg_dict)
+            _progress_callback: 进度回调，签名 f(current_seconds, total_seconds)
 
         Returns:
             TranscribeResult 对象
@@ -199,42 +208,59 @@ class WhisperTranscriber:
 
         # 执行转写
         if self.use_faster_whisper:
-            # faster-whisper 路径
-            segments, info = self._model.transcribe(
+            # faster-whisper 路径：segments 是生成器，支持流式消费
+            segments_iterable, info = self._model.transcribe(
                 str(audio_path),
                 language=self.language,
                 initial_prompt=initial_prompt,
-                vad_filter=vad_filter
+                vad_filter=vad_filter,
+                beam_size=beam_size,
+                best_of=best_of,
+                temperature=temperature,
+                condition_on_previous_text=condition_on_previous_text,
+                without_timestamps=without_timestamps,
             )
-            
+
             duration = info.duration or 0.0
             language_detected = info.language or self.language or "unknown"
-            
+
+            # 流式消费：每 yield 一个片段立即回调，不等待全部完成
             segment_list = []
-            for seg in segments:
-                segment_list.append(Segment(
-                    start=seg.start,
-                    end=seg.end,
-                    text=seg.text.strip()
-                ))
+            for seg in segments_iterable:
+                seg_dict = {
+                    "start": seg.start,
+                    "end": seg.end,
+                    "text": seg.text.strip(),
+                    "speaker": "SPEAKER_00",
+                }
+                segment_list.append(Segment(**seg_dict))
+                if _on_segment:
+                    _on_segment(seg_dict)
+                if _progress_callback:
+                    _progress_callback(seg.end, duration)
+
         else:
-            # openai-whisper 路径
+            # openai-whisper 路径（阻塞）
             result = self._model.transcribe(
                 str(audio_path),
                 language=self.language,
                 initial_prompt=initial_prompt
             )
-            
+
             duration = result.get("segments", [{}])[-1].get("end", 0.0) if result.get("segments") else 0.0
             language_detected = result.get("language", self.language or "unknown")
-            
+
             segment_list = []
             for seg in result.get("segments", []):
-                segment_list.append(Segment(
+                seg_obj = Segment(
                     start=seg["start"],
                     end=seg["end"],
-                    text=seg["text"].strip()
-                ))
+                    text=seg["text"].strip(),
+                    speaker="SPEAKER_00",
+                )
+                segment_list.append(seg_obj)
+                if _on_segment:
+                    _on_segment(seg_obj.to_dict())
 
         return TranscribeResult(
             file=audio_path.name,

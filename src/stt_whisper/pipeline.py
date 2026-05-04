@@ -24,6 +24,12 @@ class PipelineConfig:
     device: str = "cpu"
     use_faster_whisper: bool = True
 
+    # 转写质量参数（faster-whisper）
+    beam_size: int = 5
+    best_of: int = 5
+    temperature: float = 0.0
+    vad_filter: bool = True
+
     # 说话人区分配置
     enable_diarization: bool = True
     diarization_model: str = "pyannote/speaker-diarization-3.1"
@@ -139,19 +145,25 @@ class STTPipeline:
             processed_audio = audio_path
 
             if self.config.convert_to_wav:
-                wav_path = audio_path.with_suffix(".wav")
-                processed_audio = self.audio_converter.convert_to_wav(
-                    audio_path,
-                    wav_path,
-                    sample_rate=self.config.target_sample_rate
-                )
-                logger.info(f"[{audio_path.name}] 转换为 WAV 完成")
+                is_wav = audio_path.suffix.lower() == ".wav"
+                if not is_wav:
+                    wav_path = audio_path.with_suffix(".wav")
+                    processed_audio = self.audio_converter.convert_to_wav(
+                        audio_path,
+                        wav_path,
+                        sample_rate=self.config.target_sample_rate
+                    )
+                    logger.info(f"[{audio_path.name}] 转换为 WAV 完成")
 
             # Step 2: 语音转写
             logger.info(f"[{audio_path.name}] Step 2: 语音转写")
             transcribe_result = self.transcriber.transcribe(
                 processed_audio,
-                background=background
+                background=background,
+                beam_size=self.config.beam_size,
+                best_of=self.config.best_of,
+                temperature=self.config.temperature,
+                vad_filter=self.config.vad_filter,
             )
             result.duration_seconds = transcribe_result.duration_seconds
 
@@ -295,10 +307,12 @@ class STTPipeline:
 
             if "preprocess" in steps:
                 if self.config.convert_to_wav:
-                    wav_path = audio_path.with_suffix(".wav")
-                    processed_audio = self.audio_converter.convert_to_wav(
-                        audio_path, wav_path, sample_rate=self.config.target_sample_rate
-                    )
+                    is_wav = audio_path.suffix.lower() == ".wav"
+                    if not is_wav:
+                        wav_path = audio_path.with_suffix(".wav")
+                        processed_audio = self.audio_converter.convert_to_wav(
+                            audio_path, wav_path, sample_rate=self.config.target_sample_rate
+                        )
 
             if "transcribe" in steps:
                 transcribe_result = self.transcriber.transcribe(processed_audio, background=background)
